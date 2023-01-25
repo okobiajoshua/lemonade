@@ -38,6 +38,7 @@ func main() {
 		ReadTimeout:  15 * time.Second,
 	}
 
+	// Note: x=2 used here. Running 2 worker go routines per time
 	go processVerificationQueue(2, verifyUser)
 	go processTransactionQueue(2, processTransaction)
 	log.Fatal(srv.ListenAndServe())
@@ -114,7 +115,7 @@ func processVerificationQueue(x int, f func(User) error) {
 		case <-done:
 			return
 		case <-ticker.C:
-			if len(verificationQueue) > 0 {
+			if len(verificationQueue) > 0 { // Added check to avoid spinning too many idle goroutines
 				for i := 0; i < x; i++ {
 					fmt.Println("new goroutine")
 					go f(<-verificationQueue)
@@ -133,8 +134,10 @@ func processTransactionQueue(x int, f func(Transaction) error) {
 		case <-done:
 			return
 		case <-ticker.C:
-			for i := 0; i < x; i++ {
-				go f(<-transactionQueue)
+			if len(transactionQueue) > 0 { // Added check to avoid spinning too many idle goroutines
+				for i := 0; i < x; i++ {
+					go f(<-transactionQueue)
+				}
 			}
 		}
 	}
